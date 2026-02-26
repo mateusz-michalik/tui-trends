@@ -155,12 +155,24 @@ function errorView(state: Readonly<State>) {
   });
 }
 
+// Pick ~7 evenly-spaced short date labels across the timeline for the X axis.
+function xAxisLabels(timeline: TimelinePoint[], count = 7): string[] {
+  if (timeline.length === 0) return [];
+  const step = (timeline.length - 1) / (count - 1);
+  return Array.from({ length: count }, (_, i) => {
+    const point = timeline[Math.round(i * step)];
+    // e.g. "Feb 23 – Mar 1, 2025"  →  "Feb '25"
+    const raw = point?.formattedTime ?? '';
+    const month = raw.slice(0, 3);
+    const year = raw.match(/\d{4}/)?.[0]?.slice(2) ?? '';
+    return year ? `${month} '${year}` : month;
+  });
+}
+
 function dashboardView(state: Readonly<State>) {
   const data = state.data!;
   const timelineValues = data.timeline.map(t => t.value);
-
-  const firstDate = data.timeline[0]?.formattedTime ?? '';
-  const lastDate = data.timeline.at(-1)?.formattedTime ?? '';
+  const xLabels = xAxisLabels(data.timeline);
 
   return ui.page({
     header: ui.header({
@@ -168,26 +180,13 @@ function dashboardView(state: Readonly<State>) {
       subtitle: `"${state.keyword}" — interest over the last 12 months`,
     }),
     body: ui.column({ gap: 1 }, [
-      // ── ASCII banner strip ───────────────────────────────────────
-      ui.column(
-        { gap: 0 },
-        BANNER_LINES.map((line, i) =>
-          ui.text(line, {
-            style: { fg: i % 2 === 0 ? NEON_CYAN : NEON_PINK, bold: true },
-            key: String(i),
-          }),
-        ),
-      ),
-
-      ui.divider(),
-
       // ── Interest over time ───────────────────────────────────────
       ui.panel(
         { title: '▸  Interest Over Time', variant: 'rounded', p: 1, gap: 1 },
         [
           ui.lineChart({
             width: 90,
-            height: 10,
+            height: 12,
             series: [{ label: state.keyword, color: CHART_COLOR, data: timelineValues }],
             axes: {
               y: { min: 0, max: 100 },
@@ -195,12 +194,15 @@ function dashboardView(state: Readonly<State>) {
             showLegend: false,
             blitter: 'braille',
           }),
+          // Manual X-axis date labels
+          ui.row({ gap: 0 }, xLabels.flatMap((label, i) => [
+            ui.text(label, { style: { fg: DIM_TEXT }, key: `xl${i}` }),
+            ...(i < xLabels.length - 1 ? [ui.spacer({ flex: 1, key: `xs${i}` })] : []),
+          ])),
           ui.row({ gap: 2 }, [
             ui.text(`Peak: ${Math.max(...timelineValues)}`, { style: { fg: NEON_GREEN, bold: true } }),
             ui.text(`Avg: ${Math.round(timelineValues.reduce((a, b) => a + b, 0) / timelineValues.length)}`, { style: { fg: NEON_CYAN } }),
             ui.text(`Current: ${timelineValues.at(-1) ?? 0}`, { style: { fg: NEON_PINK } }),
-            ui.spacer({ flex: 1 }),
-            ui.text(`${firstDate} → ${lastDate}`, { style: { fg: DIM_TEXT } }),
           ]),
         ],
       ),
