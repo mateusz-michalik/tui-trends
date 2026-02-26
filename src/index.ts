@@ -17,11 +17,13 @@ type TrendsData = {
   queries:  RelatedQuery[];
 };
 
+type Mode   = 'google' | 'npm';
 type Status = 'loading' | 'ready' | 'error';
 
 type State = {
   status:     Status;
   keyword:    string;
+  mode:       Mode;
   data:       TrendsData | null;
   error:      string | null;
   themeIndex: number;
@@ -33,11 +35,11 @@ type AppTheme = {
   name:       string;
   rezi:       ThemeDefinition;
   chart:      string;
-  accent1:    Rgb;   // peak stat
-  accent2:    Rgb;   // avg stat
-  accent3:    Rgb;   // current stat
-  banner1:    Rgb;   // banner odd lines
-  banner2:    Rgb;   // banner even lines
+  accent1:    Rgb;
+  accent2:    Rgb;
+  accent3:    Rgb;
+  banner1:    Rgb;
+  banner2:    Rgb;
   barVariant: 'default' | 'success' | 'warning' | 'error' | 'info';
   dim:        Rgb;
 };
@@ -122,7 +124,7 @@ const THEMES: AppTheme[] = [
 const BANNER_TEXT = "  _____ _   _ ___    _____ ____  _____ _   _ ____  ____  \n |_   _| | | |_ _|  |_   _|  _ \\| ____| \\ | |  _ \\/ ___| \n   | | | | | || |     | | | |_) |  _| |  \\| | | | \\___ \\ \n   | | | |_| || |     | | |  _ <| |___| |\\  | |_| |___) |\n   |_|  \\___/|___|    |_| |_| \\_\\_____|_| \\_|____/|____/ ";
 const BANNER_LINES = BANNER_TEXT.split('\n').filter(l => l.length > 0);
 
-// ─── Data Fetching ────────────────────────────────────────────────────────────
+// ─── Google Trends Fetching ───────────────────────────────────────────────────
 
 async function fetchTrends(keyword: string): Promise<TrendsData> {
   const startTime = new Date();
@@ -157,18 +159,88 @@ async function fetchTrends(keyword: string): Promise<TrendsData> {
   const rankedList = queriesJson.default?.rankedList ?? [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const queries: RelatedQuery[] = ((rankedList[0]?.rankedKeyword ?? []) as any[])
-    .slice(0, 10)
+    .slice(0, 12)
     .map((d) => ({ query: String(d.query ?? ''), value: Number(d.value ?? 0) }));
+
+  return { timeline, regions, queries };
+}
+
+// ─── npm Downloads Fetching ───────────────────────────────────────────────────
+
+function monthLabel(yyyyMM: string): string {
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [y, m] = yyyyMM.split('-');
+  return `${names[parseInt(m ?? '1') - 1] ?? '?'} '${(y ?? '').slice(2)}`;
+}
+
+async function fetchNpm(pkg: string): Promise<TrendsData> {
+  const res = await fetch(
+    `https://api.npmjs.org/downloads/range/last-year/${encodeURIComponent(pkg)}`,
+  );
+  if (!res.ok) throw new Error(`npm registry error: ${res.status} ${res.statusText}`);
+
+  const json = await res.json() as {
+    downloads?: { downloads: number; day: string }[];
+    error?: string;
+  };
+  if (json.error) throw new Error(`Package not found: "${pkg}"`);
+
+  const daily = json.downloads ?? [];
+
+  // ── Weekly buckets (normalized 0–100 for the line chart) ─────────────────
+  const weeks: { label: string; total: number }[] = [];
+  for (let i = 0; i < daily.length; i += 7) {
+    const chunk = daily.slice(i, Math.min(i + 7, daily.length));
+    const total = chunk.reduce((s, d) => s + d.downloads, 0);
+    weeks.push({ label: chunk[0]!.day, total });
+  }
+  const maxWeek = Math.max(...weeks.map(w => w.total), 1);
+  const timeline: TimelinePoint[] = weeks.map(w => ({
+    formattedTime: w.label,
+    value: Math.round((w.total / maxWeek) * 100),
+  }));
+
+  // ── Top 8 weeks for the bar chart ("Peak Weeks") ─────────────────────────
+  const topWeeks = [...weeks].sort((a, b) => b.total - a.total).slice(0, 8);
+  const regions: RegionPoint[] = topWeeks.map(w => ({
+    // Show as "MMM 'YY" — e.g. "Mar '25"
+    geoName: monthLabel(w.label.slice(0, 7)) + ' ' + w.label.slice(8, 10),
+    value: Math.round((w.total / maxWeek) * 100),
+  }));
+
+  // ── Monthly totals for the table ("Monthly Breakdown") ───────────────────
+  const monthMap = new Map<string, number>();
+  for (const { day, downloads } of daily) {
+    const mo = day.slice(0, 7);
+    monthMap.set(mo, (monthMap.get(mo) ?? 0) + downloads);
+  }
+  const sortedMonths = [...monthMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const maxMonth = Math.max(...sortedMonths.map(([, v]) => v), 1);
+  const queries: RelatedQuery[] = sortedMonths.map(([mo, total]) => ({
+    query: monthLabel(mo),
+    value: Math.round((total / maxMonth) * 100),
+  }));
 
   return { timeline, regions, queries };
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
-const keyword = process.argv[2] ?? 'bitcoin';
+// argv:  tui-trends [keyword]          → Google Trends
+//        tui-trends --npm [package]    → npm downloads
+const rawArgs = process.argv.slice(2);
+let mode: Mode = 'google';
+let keyword: string;
+
+if (rawArgs[0] === '--npm') {
+  mode    = 'npm';
+  keyword = rawArgs[1] ?? 'react';
+} else {
+  keyword = rawArgs[0] ?? 'bitcoin';
+}
 
 const app = createNodeApp<State>({
-  initialState: { status: 'loading', keyword, data: null, error: null, themeIndex: 0 },
+  initialState: { status: 'loading', keyword, mode, data: null, error: null, themeIndex: 0 },
   theme: THEMES[0]!.rezi,
 });
 
@@ -176,7 +248,7 @@ const app = createNodeApp<State>({
 
 async function fetchOnce(kw: string): Promise<void> {
   try {
-    const data = await fetchTrends(kw);
+    const data = mode === 'npm' ? await fetchNpm(kw) : await fetchTrends(kw);
     app.update(s => ({ ...s, status: 'ready', data }));
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
@@ -198,8 +270,12 @@ function xAxisLabels(timeline: TimelinePoint[], count = 7): string[] {
   if (timeline.length === 0) return [];
   const step = (timeline.length - 1) / (count - 1);
   return Array.from({ length: count }, (_, i) => {
-    const point = timeline[Math.round(i * step)];
-    const raw   = point?.formattedTime ?? '';
+    const raw = timeline[Math.round(i * step)]?.formattedTime ?? '';
+    if (raw.includes('-')) {
+      // npm format: YYYY-MM-DD
+      return monthLabel(raw.slice(0, 7));
+    }
+    // Google format: "Mar 3, 2025"
     const month = raw.slice(0, 3);
     const year  = raw.match(/\d{4}/)?.[0]?.slice(2) ?? '';
     return year ? `${month} '${year}` : month;
@@ -212,7 +288,7 @@ function footer(state: Readonly<State>) {
     left: [
       ui.text('[q]',  { style: { fg: t.accent3, bold: true } }),
       ui.text('quit', { style: { fg: t.dim } }),
-      ui.text('  [t]',       { style: { fg: t.accent3, bold: true } }),
+      ui.text('  [← →]',       { style: { fg: t.accent3, bold: true } }),
       ui.text('cycle theme', { style: { fg: t.dim } }),
     ],
     right: [
@@ -233,7 +309,7 @@ function loadingView(state: Readonly<State>) {
       ui.spacer({ size: 1 }),
       ui.row({ gap: 1, items: 'center' }, [
         ui.spinner({ variant: 'dots' }),
-        ui.text(`Fetching trends for "${state.keyword}"…`, { style: { fg: t.accent1 } }),
+        ui.text(`Fetching ${state.mode === 'npm' ? 'npm downloads' : 'trends'} for "${state.keyword}"…`, { style: { fg: t.accent1 } }),
       ]),
       ui.text('This may take a few seconds', { style: { fg: t.dim } }),
     ]),
@@ -254,19 +330,23 @@ function errorView(state: Readonly<State>) {
 }
 
 function dashboardView(state: Readonly<State>) {
-  const t    = theme(state);
-  const data = state.data!;
-  const vals = data.timeline.map(p => p.value);
+  const t      = theme(state);
+  const data   = state.data!;
+  const isNpm  = state.mode === 'npm';
+  const vals   = data.timeline.map(p => p.value);
   const xlabels = xAxisLabels(data.timeline);
 
   return ui.page({
     header: ui.header({
-      title: 'TUI TRENDS',
-      subtitle: `"${state.keyword}" — interest over the last 12 months`,
+      title:    'TUI TRENDS',
+      subtitle: isNpm
+        ? `"${state.keyword}" — npm downloads (weekly index, 0–100)`
+        : `"${state.keyword}" — interest over the last 12 months`,
     }),
     body: ui.column({ gap: 1 }, [
-      // ── Interest over time ───────────────────────────────────────
-      ui.panel({ title: '▸  Interest Over Time', variant: 'rounded', p: 1, gap: 1 }, [
+
+      // ── Line chart ───────────────────────────────────────────────
+      ui.panel({ title: isNpm ? '▸  Weekly Downloads' : '▸  Interest Over Time', variant: 'rounded', p: 1, gap: 1 }, [
         ui.lineChart({
           width: 90,
           height: 12,
@@ -288,8 +368,9 @@ function dashboardView(state: Readonly<State>) {
 
       // ── Bottom row ───────────────────────────────────────────────
       ui.row({ gap: 1 }, [
+
         ui.box({ flex: 1 }, [
-          ui.panel({ title: '▸  Top Regions', variant: 'rounded', p: 1 }, [
+          ui.panel({ title: isNpm ? '▸  Peak Weeks' : '▸  Top Regions', variant: 'rounded', p: 1 }, [
             ui.barChart(
               data.regions.map(r => ({
                 label: r.geoName.length > 16 ? r.geoName.slice(0, 15) + '…' : r.geoName,
@@ -302,12 +383,12 @@ function dashboardView(state: Readonly<State>) {
         ]),
 
         ui.box({ flex: 1 }, [
-          ui.panel({ title: '▸  Related Queries', variant: 'rounded', p: 1 }, [
+          ui.panel({ title: isNpm ? '▸  Monthly Breakdown' : '▸  Related Queries', variant: 'rounded', p: 1 }, [
             ui.table({
-              id: 'related-queries',
+              id: 'queries-table',
               columns: [
-                { key: 'query', header: 'Query', flex: 1, overflow: 'ellipsis' },
-                { key: 'value', header: 'Score', width: 7, align: 'right' },
+                { key: 'query', header: isNpm ? 'Month' : 'Query', flex: 1, overflow: 'ellipsis' },
+                { key: 'value', header: isNpm ? 'Index' : 'Score', width: 7, align: 'right' },
               ],
               data: data.queries,
               getRowKey: r => r.query,
@@ -316,6 +397,7 @@ function dashboardView(state: Readonly<State>) {
             }),
           ]),
         ]),
+
       ]),
     ]),
     footer: footer(state),
@@ -332,13 +414,16 @@ app.view((state) => {
 
 // ─── Key bindings ─────────────────────────────────────────────────────────────
 
+function cycleTheme(currentIndex: number, dir: 1 | -1): void {
+  const next = ((currentIndex + dir) + THEMES.length) % THEMES.length;
+  app.update(s => ({ ...s, themeIndex: next }));
+}
+
 app.keys({
-  q: () => { void app.stop(); },
-  t: (ctx) => {
-    const nextIndex = (ctx.state.themeIndex + 1) % THEMES.length;
-    app.setTheme(THEMES[nextIndex]!.rezi);
-    app.update(s => ({ ...s, themeIndex: nextIndex }));
-  },
+  q:     (ctx) => { void app.stop(); },
+  left:  (ctx) => { cycleTheme(ctx.state.themeIndex, -1); },
+  right: (ctx) => { cycleTheme(ctx.state.themeIndex, +1); },
+  t:     (ctx) => { cycleTheme(ctx.state.themeIndex, +1); },
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

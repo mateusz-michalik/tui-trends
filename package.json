@@ -22,7 +22,11 @@
     "@rezi-ui/core": "0.1.0-alpha.45",
     "@rezi-ui/native": "0.1.0-alpha.45",
     "@rezi-ui/node": "0.1.0-alpha.45",
+    "g": "^2.0.1",
     "google-trends-api": "^4.9.2"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
