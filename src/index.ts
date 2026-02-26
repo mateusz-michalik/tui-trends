@@ -42,6 +42,7 @@ type AppTheme = {
   banner2:    Rgb;
   barVariant: 'default' | 'success' | 'warning' | 'error' | 'info';
   dim:        Rgb;
+  border:     Rgb;  // panel/header border color
 };
 
 const THEMES: AppTheme[] = [
@@ -56,6 +57,7 @@ const THEMES: AppTheme[] = [
     banner2:    rgb(255, 46, 151),
     barVariant: 'info',
     dim:        rgb(98, 114, 164),
+    border:     rgb(0, 200, 160),
   },
   {
     name: 'Matrix',
@@ -68,6 +70,7 @@ const THEMES: AppTheme[] = [
     banner2:    rgb(0, 160, 30),
     barVariant: 'success',
     dim:        rgb(0, 100, 25),
+    border:     rgb(0, 160, 40),
   },
   {
     name: 'C64',
@@ -80,6 +83,7 @@ const THEMES: AppTheme[] = [
     banner2:    rgb(100, 100, 220),
     barVariant: 'info',
     dim:        rgb(80, 80, 160),
+    border:     rgb(120, 120, 220),
   },
   {
     name: 'Amber',
@@ -92,6 +96,7 @@ const THEMES: AppTheme[] = [
     banner2:    rgb(200, 80, 0),
     barVariant: 'warning',
     dim:        rgb(120, 70, 0),
+    border:     rgb(180, 100, 0),
   },
   {
     name: 'Nord',
@@ -104,6 +109,7 @@ const THEMES: AppTheme[] = [
     banner2:    rgb(94, 129, 172),
     barVariant: 'info',
     dim:        rgb(76, 86, 106),
+    border:     rgb(94, 129, 172),
   },
   {
     name: 'Blood Moon',
@@ -116,6 +122,7 @@ const THEMES: AppTheme[] = [
     banner2:    rgb(180, 0, 0),
     barVariant: 'error',
     dim:        rgb(100, 30, 30),
+    border:     rgb(180, 20, 20),
   },
 ];
 
@@ -266,6 +273,17 @@ function theme(state: Readonly<State>): AppTheme {
   return THEMES[state.themeIndex] ?? THEMES[0]!;
 }
 
+// ui.header() has no style prop, so we replicate its structure with a styled box
+function themedHeader(title: string, subtitle: string, t: AppTheme) {
+  return ui.box({ border: 'rounded', px: 1, py: 0, style: { fg: t.border } }, [
+    ui.row({ gap: 1, items: 'center' }, [
+      ui.text(title, { variant: 'heading' }),
+      ui.text(subtitle, { dim: true }),
+      ui.spacer({ flex: 1 }),
+    ]),
+  ]);
+}
+
 function xAxisLabels(timeline: TimelinePoint[], count = 7): string[] {
   if (timeline.length === 0) return [];
   const step = (timeline.length - 1) / (count - 1);
@@ -320,7 +338,7 @@ function loadingView(state: Readonly<State>) {
 function errorView(state: Readonly<State>) {
   const t = theme(state);
   return ui.page({
-    header: ui.header({ title: 'TUI TRENDS', subtitle: `"${state.keyword}"` }),
+    header: themedHeader('TUI TRENDS', `"${state.keyword}"`, t),
     body: ui.column({ gap: 2 }, [
       ui.callout(state.error ?? 'Unknown error', { variant: 'error' }),
       ui.text('Press [q] to quit', { style: { fg: t.dim } }),
@@ -337,16 +355,17 @@ function dashboardView(state: Readonly<State>) {
   const xlabels = xAxisLabels(data.timeline);
 
   return ui.page({
-    header: ui.header({
-      title:    'TUI TRENDS',
-      subtitle: isNpm
+    header: themedHeader(
+      'TUI TRENDS',
+      isNpm
         ? `"${state.keyword}" — npm downloads (weekly index, 0–100)`
         : `"${state.keyword}" — interest over the last 12 months`,
-    }),
+      t,
+    ),
     body: ui.column({ gap: 1 }, [
 
       // ── Line chart ───────────────────────────────────────────────
-      ui.panel({ title: isNpm ? '▸  Weekly Downloads' : '▸  Interest Over Time', variant: 'rounded', p: 1, gap: 1 }, [
+      ui.panel({ title: isNpm ? '▸  Weekly Downloads' : '▸  Interest Over Time', variant: 'rounded', p: 1, gap: 1, style: { fg: t.border } }, [
         ui.lineChart({
           width: 90,
           height: 12,
@@ -369,8 +388,8 @@ function dashboardView(state: Readonly<State>) {
       // ── Bottom row ───────────────────────────────────────────────
       ui.row({ gap: 1 }, [
 
-        ui.box({ flex: 1 }, [
-          ui.panel({ title: isNpm ? '▸  Peak Weeks' : '▸  Top Regions', variant: 'rounded', p: 1 }, [
+        ui.box({ flex: 1, border: 'none' }, [
+          ui.panel({ title: isNpm ? '▸  Peak Weeks' : '▸  Top Regions', variant: 'rounded', p: 1, style: { fg: t.border } }, [
             ui.barChart(
               data.regions.map(r => ({
                 label: r.geoName.length > 16 ? r.geoName.slice(0, 15) + '…' : r.geoName,
@@ -382,8 +401,8 @@ function dashboardView(state: Readonly<State>) {
           ]),
         ]),
 
-        ui.box({ flex: 1 }, [
-          ui.panel({ title: isNpm ? '▸  Monthly Breakdown' : '▸  Related Queries', variant: 'rounded', p: 1 }, [
+        ui.box({ flex: 1, border: 'none' }, [
+          ui.panel({ title: isNpm ? '▸  Monthly Breakdown' : '▸  Related Queries', variant: 'rounded', p: 1, style: { fg: t.border } }, [
             ui.table({
               id: 'queries-table',
               columns: [
