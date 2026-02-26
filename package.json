@@ -1,6 +1,6 @@
 {
   "name": "tui-trends",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cyberpunk Google Trends visualizer in your terminal",
   "type": "module",
   "bin": {
