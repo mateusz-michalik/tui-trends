@@ -2,13 +2,15 @@
   "name": "tui-trends",
   "version": "1.0.1",
   "description": "Cyberpunk Google Trends visualizer in your terminal",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "tui-trends": "dist/cli.js"
   },
   "files": [
     "dist/",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "start": "tsx src/index.ts",
