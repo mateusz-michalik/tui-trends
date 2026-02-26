@@ -3,12 +3,22 @@
   "version": "1.0.0",
   "description": "Cyberpunk Google Trends visualizer in your terminal",
   "type": "module",
+  "bin": {
+    "tui-trends": "dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
   "scripts": {
     "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --external:@rezi-ui/native --banner:js='#!/usr/bin/env node' && chmod +x dist/cli.js",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@rezi-ui/core": "0.1.0-alpha.45",
+    "@rezi-ui/native": "0.1.0-alpha.45",
     "@rezi-ui/node": "0.1.0-alpha.45",
     "figlet": "^1.8.0",
     "google-trends-api": "^4.9.2"
@@ -16,6 +26,7 @@
   "devDependencies": {
     "@types/figlet": "^1.7.0",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.27.3",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

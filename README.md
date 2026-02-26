@@ -2,16 +2,33 @@
 
 Cyberpunk Google Trends visualizer in your terminal.
 
-## Usage
+## Install globally
+
+**From npm (once published):**
+```bash
+npm install -g tui-trends
+tui-trends "buy bitcoin"
+```
+
+**From this repo (no npm publish needed):**
+```bash
+npm install
+npm run build
+npm install -g .
+tui-trends "buy bitcoin"
+```
+
+**One-off without installing:**
+```bash
+npx tui-trends "buy bitcoin"
+```
+
+## Development
 
 ```bash
-# Install dependencies (only once)
 npm install
-
-# Run with a search term
-npm start -- "buy bitcoin"
-npm start -- "taylor swift"
-npm start -- "rust programming language"
+npm start -- "buy bitcoin"   # runs via tsx, no build step
+npm run dev -- "buy bitcoin" # tsx watch mode, reloads on save
 ```
 
 ## Keybindings
