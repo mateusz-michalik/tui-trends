@@ -1,6 +1,5 @@
 import { ui, rgb, draculaTheme } from '@rezi-ui/core';
 import { createNodeApp } from '@rezi-ui/node';
-import figlet from 'figlet';
 import googleTrends from 'google-trends-api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -43,9 +42,9 @@ const NEON_GREEN  = rgb(80, 250, 123);
 const DIM_TEXT    = rgb(98, 114, 164);
 const CHART_COLOR = '#00ffc8';
 
-// ─── Static Banner ────────────────────────────────────────────────────────────
+// ─── Static Banner (pre-generated from figlet Standard font) ─────────────────
 
-const BANNER_TEXT = figlet.textSync('TUI  TRENDS', { font: 'Standard' });
+const BANNER_TEXT = "  _____ _   _ ___    _____ ____  _____ _   _ ____  ____  \n |_   _| | | |_ _|  |_   _|  _ \\| ____| \\ | |  _ \\/ ___| \n   | | | | | || |     | | | |_) |  _| |  \\| | | | \\___ \\ \n   | | | |_| || |     | | |  _ <| |___| |\\  | |_| |___) |\n   |_|  \\___/|___|    |_| |_| \\_\\_____|_| \\_|____/|____/ ";
 const BANNER_LINES = BANNER_TEXT.split('\n').filter(l => l.length > 0);
 
 // ─── Data Fetching ────────────────────────────────────────────────────────────
@@ -170,7 +169,7 @@ function dashboardView(state: Readonly<State>) {
     }),
     body: ui.column({ gap: 1 }, [
       // ── ASCII banner strip ───────────────────────────────────────
-      ui.row(
+      ui.column(
         { gap: 0 },
         BANNER_LINES.map((line, i) =>
           ui.text(line, {

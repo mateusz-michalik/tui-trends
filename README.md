@@ -2,6 +2,8 @@
 
 Cyberpunk Google Trends visualizer in your terminal.
 
+![screenshot](https://raw.githubusercontent.com/milchek/tui-trends/main/assets/screenshot.png)
+
 ## Install globally
 
 **From npm (once published):**

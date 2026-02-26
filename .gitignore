@@ -4,3 +4,4 @@ dist/
 .env
 .DS_Store
 npm-debug.log*
+# assets tracked in git but excluded from npm via .npmignore
