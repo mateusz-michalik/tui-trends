@@ -2,17 +2,19 @@
 
 Cyberpunk Google Trends visualizer in your terminal.
 
-![screenshot](https://raw.githubusercontent.com/milchek/tui-trends/main/assets/screenshot.png)
+![screenshot](https://raw.githubusercontent.com/mateusz-michalik/tui-trends/main/assets/screenshot.png)
 
 ## Install globally
 
 **From npm (once published):**
+
 ```bash
 npm install -g tui-trends
 tui-trends "buy bitcoin"
 ```
 
 **From this repo (no npm publish needed):**
+
 ```bash
 npm install
 npm run build
@@ -21,6 +23,7 @@ tui-trends "buy bitcoin"
 ```
 
 **One-off without installing:**
+
 ```bash
 npx tui-trends "buy bitcoin"
 ```
@@ -35,10 +38,10 @@ npm run dev -- "buy bitcoin" # tsx watch mode, reloads on save
 
 ## Keybindings
 
-| Key | Action |
-|-----|--------|
-| `q` | Quit |
-| `r` | Refresh / re-fetch data |
+| Key   | Action                           |
+| ----- | -------------------------------- |
+| `q`   | Quit                             |
+| `r`   | Refresh / re-fetch data          |
 | `↑ ↓` | Scroll the related queries table |
 
 ## What you'll see
